@@ -1,57 +1,56 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Registro Fotográfico - Mantenimiento de Luminarias</title>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/docx/8.5.0/docx.UMD.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Registro Fotográfico · Luminarias</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://unpkg.com/docx@8.5.0/build/index.umd.js"></script>
 </head>
 <body>
 
 <header>
-  <div class="header-icon">💡</div>
-  <div>
-    <h1>Registro Fotográfico de Mantenimiento de Luminarias</h1>
-    <p>Sistema de Generación de Documentos · Alumbrado Público</p>
+  <div class="header-inner">
+    <div class="logo">
+      <span class="logo-icon">💡</span>
+      <div>
+        <div class="logo-title">Registro Fotográfico</div>
+        <div class="logo-sub">Mantenimiento de Luminarias</div>
+      </div>
+    </div>
+    <div class="steps-header">
+      <div class="step-dot active" id="dot1" onclick="goStep(1)" title="Información"></div>
+      <div class="step-line"></div>
+      <div class="step-dot" id="dot2" onclick="goStep(2)" title="Fotografías"></div>
+      <div class="step-line"></div>
+      <div class="step-dot" id="dot3" onclick="goStep(3)" title="Vista Previa"></div>
+      <div class="step-line"></div>
+      <div class="step-dot" id="dot4" onclick="goStep(4)" title="Exportar"></div>
+    </div>
+    <div class="step-label" id="step-label-text">Información</div>
   </div>
 </header>
 
 <div class="container">
 
-  <!-- STEPS -->
-  <div class="steps">
-    <div class="step active" id="step1-tab" onclick="goStep(1)">
-      <span>📋</span>Información
-    </div>
-    <div class="step" id="step2-tab" onclick="goStep(2)">
-      <span>📸</span>Fotografías
-    </div>
-    <div class="step" id="step3-tab" onclick="goStep(3)">
-      <span>👁️</span>Vista Previa
-    </div>
-    <div class="step" id="step4-tab" onclick="goStep(4)">
-      <span>📄</span>Exportar
-    </div>
-  </div>
-
-  <!-- STEP 1: INFORMACIÓN -->
+  <!-- STEP 1: INFORMACIÓN (con descripciones) -->
   <div class="section visible" id="step1">
-    <div class="card">
-      <div class="card-title">📋 Información del Registro</div>
+    <div class="step-heading">
+      <span class="step-num">01</span>
+      <h2>Información del Registro</h2>
+    </div>
 
+    <div class="form-block">
       <div class="field">
-        <label>Título del Documento</label>
-        <input type="text" id="titulo" value="REGISTRO FOTOGRÁFICO DE MANTENIMIENTO DE LUMINARIAS" />
+        <label>Título del documento</label>
+        <input type="text" id="titulo" value="REGISTRO FOTOGRÁFICO DE MANTENIMIENTO DE LUMINARIAS">
       </div>
 
-      <div class="grid2">
+      <div class="row2">
         <div class="field">
-          <label>Mes del Registro</label>
+          <label>Mes</label>
           <select id="mes">
-            <option value="">-- Seleccione el mes --</option>
+            <option value="">— Seleccione —</option>
             <option>ENERO</option><option>FEBRERO</option><option>MARZO</option>
             <option selected>ABRIL</option><option>MAYO</option><option>JUNIO</option>
             <option>JULIO</option><option>AGOSTO</option><option>SEPTIEMBRE</option>
@@ -60,18 +59,18 @@
         </div>
         <div class="field">
           <label>Año</label>
-          <input type="text" id="anio" value="2026" maxlength="4" />
+          <input type="text" id="anio" value="2026" maxlength="4">
         </div>
       </div>
 
-      <div class="grid2">
+      <div class="row2">
         <div class="field">
           <label>Municipio</label>
-          <input type="text" id="municipio" placeholder="Ej: CARTAGENA DE INDIAS" />
+          <input type="text" id="municipio" placeholder="Ej: CARTAGENA DE INDIAS">
         </div>
         <div class="field">
           <label>Fecha</label>
-          <input type="date" id="fecha" value="2026-04-14" />
+          <input type="date" id="fecha" value="2026-04-14">
         </div>
       </div>
 
@@ -79,148 +78,122 @@
         <label>Descripción / Introducción</label>
         <textarea id="descripcion" rows="4">El presente registro fotográfico evidencia las actividades de mantenimiento preventivo y correctivo, así como la reposición de luminarias en diferentes sectores del municipio, con el fin de garantizar un adecuado funcionamiento del sistema de alumbrado público y mejorar la seguridad de la comunidad.</textarea>
       </div>
+
+      <!-- Descripciones específicas (solo aquí) -->
+      <div class="field">
+        <label>Descripción - ANTES</label>
+        <textarea id="desc-antes" rows="2" placeholder="Estado previo al mantenimiento..."></textarea>
+      </div>
+      <div class="field">
+        <label>Descripción - DURANTE</label>
+        <textarea id="desc-durante" rows="2" placeholder="Proceso de mantenimiento..."></textarea>
+      </div>
+      <div class="field">
+        <label>Descripción - DESPUÉS</label>
+        <textarea id="desc-despues" rows="2" placeholder="Estado final después del mantenimiento..."></textarea>
+      </div>
     </div>
 
-    <div class="btn-row">
-      <button class="btn btn-primary" onclick="goStep(2)">Continuar → Fotografías</button>
+    <div class="nav-row">
+      <button class="btn btn-primary" onclick="goStep(2)">Continuar →</button>
     </div>
   </div>
 
-  <!-- STEP 2: FOTOGRAFÍAS -->
+  <!-- STEP 2: FOTOGRAFÍAS (sin descripciones) -->
   <div class="section" id="step2">
+    <div class="step-heading">
+      <span class="step-num">02</span>
+      <h2>Fotografías</h2>
+    </div>
 
-    <!-- ANTES -->
-    <div class="card phase-section">
-      <div class="card-title">
-        <div class="phase-badge badge-antes">● ANTES</div>
-        Fotografías del Estado Previo
+    <div class="phases">
+      <!-- ANTES -->
+      <div class="phase-block">
+        <div class="phase-header antes">
+          <span class="phase-dot"></span>
+          <span>ANTES</span>
+          <span class="img-badge" id="count-antes">0</span>
+        </div>
+        <div class="upload-zone" id="zone-antes" onclick="document.getElementById('input-antes').click()"
+             ondragover="onDragOver(event,'antes')" ondragleave="onDragLeave('antes')" ondrop="onDrop(event,'antes')">
+          <div class="upload-hint">Clic o arrastra imágenes</div>
+        </div>
+        <input type="file" id="input-antes" accept="image/*" multiple onchange="addImages('antes', this.files)">
+        <div class="img-grid" id="grid-antes"></div>
       </div>
 
-      <div class="upload-zone" id="zone-antes" onclick="document.getElementById('input-antes').click()"
-           ondragover="onDragOver(event,'antes')" ondragleave="onDragLeave('antes')" ondrop="onDrop(event,'antes')">
-        <div class="upload-icon">🔴</div>
-        <div class="upload-text"><strong>Haz clic</strong> o arrastra imágenes aquí</div>
-        <div class="upload-text" style="margin-top:6px;font-size:11px;">JPG, PNG — Múltiples archivos permitidos</div>
+      <!-- DURANTE -->
+      <div class="phase-block">
+        <div class="phase-header durante">
+          <span class="phase-dot"></span>
+          <span>DURANTE</span>
+          <span class="img-badge" id="count-durante">0</span>
+        </div>
+        <div class="upload-zone" id="zone-durante" onclick="document.getElementById('input-durante').click()"
+             ondragover="onDragOver(event,'durante')" ondragleave="onDragLeave('durante')" ondrop="onDrop(event,'durante')">
+          <div class="upload-hint">Clic o arrastra imágenes</div>
+        </div>
+        <input type="file" id="input-durante" accept="image/*" multiple onchange="addImages('durante', this.files)">
+        <div class="img-grid" id="grid-durante"></div>
       </div>
-      <input type="file" id="input-antes" accept="image/*" multiple onchange="addImages('antes', this.files)" />
-      <div class="img-grid" id="grid-antes"></div>
-      <div class="img-counter">Imágenes: <span class="count" id="count-antes">0</span></div>
 
-      <div class="phase-desc">
-        <label>Descripción — ANTES</label>
-        <textarea id="desc-antes" placeholder="Describa el estado de las luminarias antes del mantenimiento..."></textarea>
+      <!-- DESPUÉS -->
+      <div class="phase-block">
+        <div class="phase-header despues">
+          <span class="phase-dot"></span>
+          <span>DESPUÉS</span>
+          <span class="img-badge" id="count-despues">0</span>
+        </div>
+        <div class="upload-zone" id="zone-despues" onclick="document.getElementById('input-despues').click()"
+             ondragover="onDragOver(event,'despues')" ondragleave="onDragLeave('despues')" ondrop="onDrop(event,'despues')">
+          <div class="upload-hint">Clic o arrastra imágenes</div>
+        </div>
+        <input type="file" id="input-despues" accept="image/*" multiple onchange="addImages('despues', this.files)">
+        <div class="img-grid" id="grid-despues"></div>
       </div>
     </div>
 
-    <!-- DURANTE -->
-    <div class="card phase-section">
-      <div class="card-title">
-        <div class="phase-badge badge-durante">● DURANTE</div>
-        Fotografías del Proceso
-      </div>
-
-      <div class="upload-zone" id="zone-durante" onclick="document.getElementById('input-durante').click()"
-           ondragover="onDragOver(event,'durante')" ondragleave="onDragLeave('durante')" ondrop="onDrop(event,'durante')">
-        <div class="upload-icon">🟡</div>
-        <div class="upload-text"><strong>Haz clic</strong> o arrastra imágenes aquí</div>
-        <div class="upload-text" style="margin-top:6px;font-size:11px;">JPG, PNG — Múltiples archivos permitidos</div>
-      </div>
-      <input type="file" id="input-durante" accept="image/*" multiple onchange="addImages('durante', this.files)" />
-      <div class="img-grid" id="grid-durante"></div>
-      <div class="img-counter">Imágenes: <span class="count" id="count-durante">0</span></div>
-
-      <div class="phase-desc">
-        <label>Descripción — DURANTE</label>
-        <textarea id="desc-durante" placeholder="Describa el proceso de mantenimiento realizado..."></textarea>
-      </div>
-    </div>
-
-    <!-- DESPUÉS -->
-    <div class="card phase-section">
-      <div class="card-title">
-        <div class="phase-badge badge-despues">● DESPUÉS</div>
-        Fotografías del Estado Final
-      </div>
-
-      <div class="upload-zone" id="zone-despues" onclick="document.getElementById('input-despues').click()"
-           ondragover="onDragOver(event,'despues')" ondragleave="onDragLeave('despues')" ondrop="onDrop(event,'despues')">
-        <div class="upload-icon">🟢</div>
-        <div class="upload-text"><strong>Haz clic</strong> o arrastra imágenes aquí</div>
-        <div class="upload-text" style="margin-top:6px;font-size:11px;">JPG, PNG — Múltiples archivos permitidos</div>
-      </div>
-      <input type="file" id="input-despues" accept="image/*" multiple onchange="addImages('despues', this.files)" />
-      <div class="img-grid" id="grid-despues"></div>
-      <div class="img-counter">Imágenes: <span class="count" id="count-despues">0</span></div>
-
-      <div class="phase-desc">
-        <label>Descripción — DESPUÉS</label>
-        <textarea id="desc-despues" placeholder="Describa el resultado final después del mantenimiento..."></textarea>
-      </div>
-    </div>
-
-    <div class="btn-row">
-      <button class="btn btn-secondary" onclick="goStep(1)">← Volver</button>
-      <button class="btn btn-primary" onclick="buildPreview(); goStep(3)">Generar Vista Previa →</button>
+    <div class="nav-row">
+      <button class="btn btn-ghost" onclick="goStep(1)">← Volver</button>
+      <button class="btn btn-primary" onclick="buildPreview(); goStep(3)">Vista Previa →</button>
     </div>
   </div>
 
   <!-- STEP 3: VISTA PREVIA -->
   <div class="section" id="step3">
-    <div class="card">
-      <div class="card-title">👁️ Vista Previa del Documento</div>
-      <p style="font-size:13px;color:var(--text2);margin-bottom:20px;">
-        Así lucirá el documento final. Las imágenes se organizan en tablas de máximo 6 por página (3 columnas × 2 filas).
-      </p>
-      <div id="preview-container"></div>
+    <div class="step-heading">
+      <span class="step-num">03</span>
+      <h2>Vista Previa</h2>
     </div>
-
-    <div class="btn-row">
-      <button class="btn btn-secondary" onclick="goStep(2)">← Volver a Fotos</button>
+    <div class="preview-shell" id="preview-container"></div>
+    <div class="nav-row">
+      <button class="btn btn-ghost" onclick="goStep(2)">← Volver</button>
       <button class="btn btn-primary" onclick="goStep(4)">Exportar →</button>
     </div>
   </div>
 
-  <!-- STEP 4: EXPORTAR -->
+  <!-- STEP 4: EXPORTAR (solo Word) -->
   <div class="section" id="step4">
-    <div class="card">
-      <div class="card-title">📄 Exportar Documento</div>
-      <p style="font-size:13px;color:var(--text2);margin-bottom:28px;">
-        Descarga el registro en el formato que necesites. El documento incluirá todas las imágenes organizadas con sus etiquetas (Antes, Durante, Después) en tablas de 6 imágenes por hoja.
-      </p>
-
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;max-width:600px;">
-
-        <div style="background:rgba(38,194,129,0.08);border:1px solid rgba(38,194,129,0.25);border-radius:var(--radius);padding:28px;text-align:center;">
-          <div style="font-size:48px;margin-bottom:12px;">📝</div>
-          <h3 style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;letter-spacing:1px;color:var(--green);margin-bottom:8px;">Documento Word</h3>
-          <p style="font-size:12px;color:var(--text2);margin-bottom:20px;">Formato .docx editable en Microsoft Word o LibreOffice.</p>
-          <button class="btn btn-success" id="btn-docx" onclick="generateDOCX()" style="width:100%;justify-content:center;">
-            <span>⬇️</span> Descargar .docx
-          </button>
-        </div>
-
-        <div style="background:rgba(231,76,60,0.08);border:1px solid rgba(231,76,60,0.25);border-radius:var(--radius);padding:28px;text-align:center;">
-          <div style="font-size:48px;margin-bottom:12px;">📄</div>
-          <h3 style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;letter-spacing:1px;color:#f1948a;margin-bottom:8px;">PDF</h3>
-          <p style="font-size:12px;color:var(--text2);margin-bottom:20px;">Formato .pdf listo para imprimir o compartir.</p>
-          <button class="btn btn-danger" id="btn-pdf" onclick="generatePDF()" style="width:100%;justify-content:center;">
-            <span>⬇️</span> Descargar .pdf
-          </button>
-        </div>
-
+    <div class="step-heading">
+      <span class="step-num">04</span>
+      <h2>Exportar Documento</h2>
+    </div>
+    <div style="display: flex; justify-content: center;">
+      <div class="export-card" style="max-width: 300px;">
+        <div class="export-icon">📝</div>
+        <div class="export-name">Word</div>
+        <div class="export-desc">Formato .docx editable</div>
+        <button class="btn btn-primary" id="btn-docx" onclick="generateDOCX()">⬇ Descargar .docx</button>
       </div>
     </div>
-
-    <div class="btn-row">
-      <button class="btn btn-secondary" onclick="goStep(3)">← Volver a Vista Previa</button>
+    <div class="nav-row">
+      <button class="btn btn-ghost" onclick="goStep(3)">← Volver</button>
     </div>
   </div>
 
 </div>
 
-<!-- TOAST -->
 <div class="toast" id="toast"></div>
-
 <script src="script.js"></script>
 </body>
 </html>

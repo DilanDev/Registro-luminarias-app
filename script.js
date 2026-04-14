@@ -1,36 +1,47 @@
 // ─── STATE ───
 const images = { antes: [], durante: [], despues: [] };
+const phaseLabel = { antes: 'ANTES', durante: 'DURANTE', despues: 'DESPUÉS' };
 let currentStep = 1;
+const STEP_LABELS = ['', 'Información', 'Fotografías', 'Vista Previa', 'Exportar'];
 
 // ─── NAVIGATION ───
 function goStep(n) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('visible'));
   document.getElementById('step' + n).classList.add('visible');
-  document.querySelectorAll('.step').forEach((s, i) => {
-    s.classList.remove('active', 'done');
-    if (i + 1 === n) s.classList.add('active');
-    else if (i + 1 < n) s.classList.add('done');
+  document.querySelectorAll('.step-dot').forEach((d, i) => {
+    d.classList.remove('active', 'done');
+    if (i + 1 === n) d.classList.add('active');
+    else if (i + 1 < n) d.classList.add('done');
   });
+  document.getElementById('step-label-text').textContent = STEP_LABELS[n];
   currentStep = n;
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 // ─── IMAGE UPLOAD ───
 function addImages(phase, files) {
-  Array.from(files).forEach(file => {
-    if (!file.type.startsWith('image/')) return;
+  const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
+  if (imageFiles.length === 0) return;
+
+  Promise.all(imageFiles.map(file => new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = e => {
-      images[phase].push({ dataUrl: e.target.result, name: file.name, type: file.type });
-      renderGrid(phase);
-    };
+    reader.onload = e => resolve({ dataUrl: e.target.result, name: file.name, type: file.type });
+    reader.onerror = reject;
     reader.readAsDataURL(file);
-  });
+  })))
+    .then(loadedImages => {
+      images[phase].push(...loadedImages);
+      renderGrid(phase);
+    })
+    .catch(err => {
+      console.error('Error loading images:', err);
+      showToast('❌ Error cargando imágenes', true);
+    });
 }
 
 function renderGrid(phase) {
   const grid = document.getElementById('grid-' + phase);
-  const counter = document.getElementById('count-' + phase);
+  const badge = document.getElementById('count-' + phase);
   grid.innerHTML = '';
   images[phase].forEach((img, i) => {
     const div = document.createElement('div');
@@ -41,7 +52,7 @@ function renderGrid(phase) {
     `;
     grid.appendChild(div);
   });
-  counter.textContent = images[phase].length;
+  badge.textContent = images[phase].length;
 }
 
 function removeImg(phase, idx) {
@@ -63,7 +74,7 @@ function onDrop(e, phase) {
   addImages(phase, e.dataTransfer.files);
 }
 
-// ─── BUILD PREVIEW ───
+// ─── FORM DATA ───
 function getFormData() {
   return {
     titulo: document.getElementById('titulo').value,
@@ -80,334 +91,207 @@ function getFormData() {
 
 function formatDate(d) {
   if (!d) return '';
-  const [y, m, mo] = d.split('-');
+  const parts = d.split('-');
+  const y = parts[0], m = parts[1], mo = parts[2];
   const months = ['','enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
   return `${parseInt(mo)} de ${months[parseInt(m)]} de ${y}`;
 }
 
-function buildImageRows() {
-  const allImgs = [];
-  ['antes','durante','despues'].forEach(phase => {
-    images[phase].forEach(img => allImgs.push({ phase, ...img }));
-  });
-  const rows = [];
-  for (let i = 0; i < allImgs.length; i += 3) {
-    rows.push(allImgs.slice(i, i + 3));
-  }
-  return rows;
-}
-
+// ─── BUILD PREVIEW ───
 function buildPreview() {
   const fd = getFormData();
   const container = document.getElementById('preview-container');
-  const phaseLabel = { antes: 'ANTES', durante: 'DURANTE', despues: 'DESPUÉS' };
-  const allCount = images.antes.length + images.durante.length + images.despues.length;
 
-  const phaseImagesHtml = ['antes', 'durante', 'despues'].map(phase => {
-    const imgs = images[phase].map(img => `
-      <div class="phase-img-cell">
-        <img src="${img.dataUrl}" alt="${phaseLabel[phase]}" />
-      </div>
-    `).join('');
+  const phaseColumns = ['antes', 'durante', 'despues'].map(phase => {
+    const imgs = images[phase];
+    const imagesHtml = imgs.length
+      ? imgs.map(img => `
+          <div class="preview-image-wrapper">
+            <img src="${img.dataUrl}" alt="${img.name}" />
+          </div>
+        `).join('')
+      : '<div class="preview-empty">Sin imágenes.</div>';
+
     return `
-      <td>
-        <span class="phase-column-label">${phaseLabel[phase]}</span>
-        ${imgs || '<div class="phase-empty">No hay imágenes</div>'}
-      </td>
+      <div class="preview-column">
+        <div class="preview-column-header ${phase}">
+          <span>${phaseLabel[phase]}</span>
+          <span class="img-badge">${imgs.length}</span>
+        </div>
+        <div class="preview-images">${imagesHtml}</div>
+        <div class="preview-column-desc">
+          <div class="preview-column-desc-label">Descripción</div>
+          <div>${document.getElementById('desc-' + phase).value || '—'}</div>
+        </div>
+      </div>
     `;
   }).join('');
 
   container.innerHTML = `
-    <div class="doc-preview">
-      <h2>${fd.titulo}</h2>
-      <div class="doc-meta">
-        <strong>Municipio:</strong> ${fd.municipio || ''}<br>
-        <strong>Fecha:</strong> ${formatDate(fd.fecha)}
-      </div>
-      <div class="intro-text">${fd.descripcion}</div>
-      <div class="phase-section-preview">
-        <div class="phase-title">ANTES:</div>
-        <div class="phase-text">${fd.descAntes}</div>
-        <div class="phase-title">DURANTE:</div>
-        <div class="phase-text">${fd.descDurante}</div>
-        <div class="phase-title">DESPUÉS:</div>
-        <div class="phase-text">${fd.descDespues}</div>
-      </div>
-      ${allCount === 0
-        ? '<p style="color:#999;text-align:center;padding:20px;">No se han cargado imágenes aún.</p>'
-        : `<table class="img-table preview-table"><tr>${phaseImagesHtml}</tr></table>`
-      }
+    <div class="doc-title">${fd.titulo}</div>
+    <div class="doc-subtitle">MES DE ${fd.mes} — ${fd.anio}</div>
+    <div class="doc-meta">
+      <span><strong>Municipio:</strong> ${fd.municipio || '—'}</span>
+      <span><strong>Fecha:</strong> ${formatDate(fd.fecha)}</span>
     </div>
+    <div class="doc-intro">${fd.descripcion}</div>
+    <div class="preview-grid">${phaseColumns}</div>
   `;
 }
 
-// ─── GENERATE DOCX ───
+// ─── GENERATE DOCX (con primera página estilo imagen y imágenes grandes) ───
 async function generateDOCX() {
   const btn = document.getElementById('btn-docx');
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Generando...';
 
   try {
+    if (typeof docx === 'undefined') {
+      throw new Error('La librería docx no se cargó. Recarga la página o revisa tu conexión.');
+    }
+
     const fd = getFormData();
     const {
       Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
-      ImageRun, AlignmentType, WidthType, BorderStyle, PageBreak
+      ImageRun, AlignmentType, WidthType, BorderStyle
     } = docx;
 
+    // Helper: dataURL a buffer
     async function dataUrlToBuffer(dataUrl) {
       const res = await fetch(dataUrl);
       return await res.arrayBuffer();
     }
 
-    const allImgsByPhase = { antes: [], durante: [], despues: [] };
-    for (const phase of ['antes', 'durante', 'despues']) {
-      for (const img of images[phase]) {
-        const buf = await dataUrlToBuffer(img.dataUrl);
-        allImgsByPhase[phase].push({ phase, buf, type: img.type.split('/')[1] || 'jpeg' });
+    // Obtener buffers de imágenes
+    const antesBuffers = await Promise.all(images.antes.map(img => dataUrlToBuffer(img.dataUrl)));
+    const duranteBuffers = await Promise.all(images.durante.map(img => dataUrlToBuffer(img.dataUrl)));
+    const despuesBuffers = await Promise.all(images.despues.map(img => dataUrlToBuffer(img.dataUrl)));
+
+    // Tamaño de imagen más grande (ocupará casi toda la celda)
+    const imgWidth = 300;  // píxeles
+    const imgHeight = 400; // se ajustará automáticamente si se usa solo width? Mejor poner ambos
+
+    const border = { style: BorderStyle.SINGLE, size: 4, color: 'CCCCCC' };
+    const allChildren = [];
+
+    // ========== PÁGINA 1: INFORMACIÓN (estilo imagen) ==========
+    // Título
+    allChildren.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [new TextRun({ text: fd.titulo, bold: true, size: 28 })]
+      }),
+      new Paragraph({ text: "" }), // espacio
+      // Municipio y Fecha (en dos líneas separadas, como en la imagen)
+      new Paragraph({ children: [new TextRun({ text: `Municipio: ${fd.municipio || '—'}`, bold: false, size: 22 })] }),
+      new Paragraph({ children: [new TextRun({ text: `Fecha: ${formatDate(fd.fecha)}`, bold: false, size: 22 })] }),
+      new Paragraph({ text: "" }),
+      // Descripción general
+      new Paragraph({ children: [new TextRun({ text: fd.descripcion, size: 22 })] }),
+      new Paragraph({ text: "" })
+    );
+
+    // ANTES
+    allChildren.push(
+      new Paragraph({ children: [new TextRun({ text: "ANTES:", bold: true, size: 24 })] }),
+      new Paragraph({ children: [new TextRun({ text: fd.descAntes || '—', size: 22 })] }),
+      new Paragraph({ text: "" })
+    );
+    // DURANTE
+    allChildren.push(
+      new Paragraph({ children: [new TextRun({ text: "DURANTE:", bold: true, size: 24 })] }),
+      new Paragraph({ children: [new TextRun({ text: fd.descDurante || '—', size: 22 })] }),
+      new Paragraph({ text: "" })
+    );
+    // DESPUÉS
+    allChildren.push(
+      new Paragraph({ children: [new TextRun({ text: "DESPUÉS:", bold: true, size: 24 })] }),
+      new Paragraph({ children: [new TextRun({ text: fd.descDespues || '—', size: 22 })] }),
+      new Paragraph({ text: "" })
+    );
+
+    // Salto de página después de la información
+    allChildren.push(new Paragraph({ pageBreakBefore: true, text: "" }));
+
+    // ========== PÁGINAS DE IMÁGENES ==========
+    const maxRows = Math.max(antesBuffers.length, duranteBuffers.length, despuesBuffers.length);
+    const rowsPerPage = 2; // 2 filas por página → 6 imágenes
+    const totalPages = Math.ceil(maxRows / rowsPerPage);
+
+    for (let page = 0; page < totalPages; page++) {
+      const startRow = page * rowsPerPage;
+      const endRow = Math.min(startRow + rowsPerPage, maxRows);
+
+      const tableRows = [];
+
+      // Cabecera de columnas
+      tableRows.push(
+        new TableRow({
+          children: [
+            new TableCell({ borders: { top: border, bottom: border, left: border, right: border }, children: [new Paragraph({ text: 'ANTES', alignment: AlignmentType.CENTER, bold: true })], shading: { fill: "F2F2F2" } }),
+            new TableCell({ borders: { top: border, bottom: border, left: border, right: border }, children: [new Paragraph({ text: 'DURANTE', alignment: AlignmentType.CENTER, bold: true })], shading: { fill: "F2F2F2" } }),
+            new TableCell({ borders: { top: border, bottom: border, left: border, right: border }, children: [new Paragraph({ text: 'DESPUÉS', alignment: AlignmentType.CENTER, bold: true })], shading: { fill: "F2F2F2" } })
+          ]
+        })
+      );
+
+      // Filas de imágenes
+      for (let i = startRow; i < endRow; i++) {
+        const antesBuf = i < antesBuffers.length ? antesBuffers[i] : null;
+        const duranteBuf = i < duranteBuffers.length ? duranteBuffers[i] : null;
+        const despuesBuf = i < despuesBuffers.length ? despuesBuffers[i] : null;
+
+        const createCell = (buf) => {
+          if (!buf) {
+            return new TableCell({
+              borders: { top: border, bottom: border, left: border, right: border },
+              children: [new Paragraph({ text: '—', alignment: AlignmentType.CENTER })],
+              verticalAlign: 'center'
+            });
+          }
+          return new TableCell({
+            borders: { top: border, bottom: border, left: border, right: border },
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: [new ImageRun({ data: buf, transformation: { width: imgWidth, height: imgHeight } })]
+              })
+            ],
+            verticalAlign: 'center'
+          });
+        };
+
+        tableRows.push(new TableRow({ children: [createCell(antesBuf), createCell(duranteBuf), createCell(despuesBuf)] }));
+      }
+
+      const imageTable = new Table({
+        width: { size: 100, type: WidthType.PERCENTAGE },
+        rows: tableRows,
+        alignment: AlignmentType.CENTER
+      });
+
+      allChildren.push(imageTable);
+
+      if (page < totalPages - 1) {
+        allChildren.push(new Paragraph({ pageBreakBefore: true, text: "" }));
       }
     }
 
-    const border = { style: BorderStyle.SINGLE, size: 6, color: '000000' };
-    const borders = { top: border, bottom: border, left: border, right: border };
-
-    const phaseLabel = { antes: 'ANTES', durante: 'DURANTE', despues: 'DESPUÉS' };
-
-    const children = [
-      new Paragraph({
-        alignment: AlignmentType.CENTER,
-        children: [new TextRun({ text: fd.titulo, bold: true, size: 28, font: 'Calibri', color: '000000' })]
-      }),
-      new Paragraph({
-        alignment: AlignmentType.CENTER,
-        children: [new TextRun({ text: `MES DE ${fd.mes} – ${fd.anio}`, bold: true, size: 26, font: 'Calibri', color: '000000' })]
-      }),
-      new Paragraph({ children: [] }),
-      new Paragraph({ children: [new TextRun({ text: `Municipio: ${fd.municipio}`, size: 22, font: 'Calibri', color: '000000' })] }),
-      new Paragraph({ children: [new TextRun({ text: `Fecha: ${formatDate(fd.fecha)}`, size: 22, font: 'Calibri', color: '000000' })] }),
-      new Paragraph({ children: [] }),
-      new Paragraph({
-        alignment: AlignmentType.JUSTIFIED,
-        children: [new TextRun({ text: fd.descripcion, size: 20, font: 'Calibri', color: '000000' })]
-      }),
-      new Paragraph({ children: [] }),
-      new Paragraph({
-        alignment: AlignmentType.LEFT,
-        children: [new TextRun({ text: 'ANTES:', bold: true, size: 22, font: 'Calibri', color: '000000' })]
-      }),
-      new Paragraph({ children: [new TextRun({ text: `Descripción: ${fd.descAntes}`, size: 20, font: 'Calibri', color: '000000' })] }),
-      new Paragraph({ children: [] }),
-      new Paragraph({
-        alignment: AlignmentType.LEFT,
-        children: [new TextRun({ text: 'DURANTE:', bold: true, size: 22, font: 'Calibri', color: '000000' })]
-      }),
-      new Paragraph({ children: [new TextRun({ text: `Descripción: ${fd.descDurante}`, size: 20, font: 'Calibri', color: '000000' })] }),
-      new Paragraph({ children: [] }),
-      new Paragraph({
-        alignment: AlignmentType.LEFT,
-        children: [new TextRun({ text: 'DESPUÉS:', bold: true, size: 22, font: 'Calibri', color: '000000' })]
-      }),
-      new Paragraph({ children: [new TextRun({ text: `Descripción: ${fd.descDespues}`, size: 20, font: 'Calibri', color: '000000' })] }),
-      new Paragraph({ children: [] }),
-    ];
-
-    const tableCells = ['antes', 'durante', 'despues'].map(phase => {
-      const cellChildren = [
-        new Paragraph({
-          alignment: AlignmentType.CENTER,
-          children: [new TextRun({ text: phaseLabel[phase], bold: true, size: 18, font: 'Calibri', color: '000000' })]
-        })
-      ];
-
-      const phaseImgs = allImgsByPhase[phase];
-      if (phaseImgs.length === 0) {
-        cellChildren.push(new Paragraph({ children: [new TextRun({ text: '(Sin imágenes)', size: 18, font: 'Calibri', color: '000000' })] }));
-      } else {
-        phaseImgs.forEach(img => {
-          cellChildren.push(new Paragraph({
-            alignment: AlignmentType.CENTER,
-            children: [new ImageRun({
-              data: img.buf,
-              transformation: { width: 170, height: 120 },
-              type: img.type
-            })]
-          }));
-          cellChildren.push(new Paragraph({ children: [] }));
-        });
-      }
-
-      return new TableCell({
-        borders,
-        width: { size: 3000, type: WidthType.DXA },
-        margins: { top: 100, bottom: 100, left: 100, right: 100 },
-        children: cellChildren
-      });
-    });
-
-    children.push(new Table({
-      width: { size: 9000, type: WidthType.DXA },
-      rows: [new TableRow({ children: tableCells })]
-    }));
-
-    const doc = new Document({
-      sections: [{
-        properties: {
-          page: {
-            size: { width: 12240, height: 15840 },
-            margin: { top: 1080, right: 1080, bottom: 1080, left: 1080 }
-          }
-        },
-        children
-      }]
-    });
-
-    const buffer = await Packer.toBuffer(doc);
-    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
-    const url = URL.createObjectURL(blob);
+    const doc = new Document({ sections: [{ children: allChildren }] });
+    const blob = await Packer.toBlob(doc);
     const a = document.createElement('a');
-    a.href = url;
+    a.href = URL.createObjectURL(blob);
     a.download = `Registro_Luminarias_${fd.mes}_${fd.anio}.docx`;
     a.click();
-    URL.revokeObjectURL(url);
-    showToast('✅ Documento Word generado con éxito');
-  } catch (e) {
-    console.error(e);
-    showToast('❌ Error al generar el Word', true);
+
+    showToast('✅ Documento Word generado correctamente');
+  } catch (error) {
+    console.error('Error en generateDOCX:', error);
+    showToast(`❌ Error: ${error.message || 'No se pudo generar el Word'}`, true);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '⬇ Descargar .docx';
   }
-
-  btn.disabled = false;
-  btn.innerHTML = '<span>⬇️</span> Descargar .docx';
-}
-
-// ─── GENERATE PDF ───
-async function generatePDF() {
-  const btn = document.getElementById('btn-pdf');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> Generando...';
-
-  try {
-    const { jsPDF } = window.jspdf;
-    const fd = getFormData();
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
-
-    const W = 215.9, H = 279.4;
-    const margin = 15;
-    const cw = W - margin * 2;
-    let y = margin;
-
-    const phaseLabel = { antes: 'ANTES', durante: 'DURANTE', despues: 'DESPUÉS' };
-    const phaseColors = { antes: [0, 0, 0], durante: [0, 0, 0], despues: [0, 0, 0] };
-
-    function addPage() {
-      doc.addPage();
-      y = margin;
-    }
-
-    function checkSpace(need) {
-      if (y + need > H - margin) addPage();
-    }
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(13);
-    doc.setTextColor(0, 0, 0);
-    doc.text(fd.titulo, W / 2, y, { align: 'center' });
-    y += 7;
-    doc.setFontSize(11);
-    doc.text(`MES DE ${fd.mes} – ${fd.anio}`, W / 2, y, { align: 'center' });
-    y += 8;
-
-    doc.setDrawColor(0, 0, 0);
-    doc.setLineWidth(0.8);
-    doc.line(margin, y, W - margin, y);
-    y += 6;
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.setTextColor(0, 0, 0);
-    doc.text(`Municipio: ${fd.municipio}`, margin, y);
-    y += 5.5;
-    doc.text(`Fecha: ${formatDate(fd.fecha)}`, margin, y);
-    y += 8;
-
-    doc.setFontSize(9);
-    const introLines = doc.splitTextToSize(fd.descripcion, cw);
-    doc.text(introLines, margin, y);
-    y += introLines.length * 4.5 + 6;
-
-    const descMap = { antes: fd.descAntes, durante: fd.descDurante, despues: fd.descDespues };
-    for (const phase of ['antes', 'durante', 'despues']) {
-      checkSpace(12);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9);
-      doc.text(phaseLabel[phase] + ':', margin, y);
-      y += 4.5;
-      doc.setFont('helvetica', 'normal');
-      const descLines = doc.splitTextToSize(`Descripción: ${descMap[phase]}`, cw);
-      doc.text(descLines, margin, y);
-      y += descLines.length * 4.5 + 6;
-    }
-
-    const allImgsByPhase = {
-      antes: images.antes.map(img => ({ dataUrl: img.dataUrl, type: img.type })),
-      durante: images.durante.map(img => ({ dataUrl: img.dataUrl, type: img.type })),
-      despues: images.despues.map(img => ({ dataUrl: img.dataUrl, type: img.type })),
-    };
-
-    const maxRows = Math.max(allImgsByPhase.antes.length, allImgsByPhase.durante.length, allImgsByPhase.despues.length);
-    if (maxRows === 0) {
-      checkSpace(12);
-      doc.setFontSize(9);
-      doc.setTextColor(100, 100, 100);
-      doc.text('(No se cargaron imágenes)', W / 2, y, { align: 'center' });
-      y += 10;
-    } else {
-      const cols = 3;
-      const colW = cw / cols;
-      const rowH = 58;
-      const imgH = 40;
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9);
-      for (let col = 0; col < cols; col++) {
-        const phase = ['antes', 'durante', 'despues'][col];
-        const cx = margin + col * colW;
-        doc.text(phaseLabel[phase], cx + 2, y);
-      }
-      y += 6;
-
-      for (let row = 0; row < maxRows; row++) {
-        checkSpace(rowH + 8);
-        for (let col = 0; col < cols; col++) {
-          const phase = ['antes', 'durante', 'despues'][col];
-          const img = allImgsByPhase[phase][row];
-          const cx = margin + col * colW;
-          const cy = y;
-          doc.setDrawColor(0, 0, 0);
-          doc.setLineWidth(0.3);
-          doc.rect(cx + 1, cy, colW - 2, rowH, 'S');
-
-          if (img) {
-            const type = img.dataUrl.startsWith('data:image/png') ? 'PNG' : 'JPEG';
-            try {
-              doc.addImage(img.dataUrl, type, cx + 3, cy + 3, colW - 6, imgH);
-            } catch (e) {
-              doc.setFillColor(240, 240, 240);
-              doc.rect(cx + 3, cy + 3, colW - 6, imgH, 'F');
-            }
-          }
-        }
-        y += rowH + 4;
-      }
-    }
-
-    doc.save(`Registro_Luminarias_${fd.mes}_${fd.anio}.pdf`);
-    showToast('✅ PDF generado con éxito');
-  } catch (e) {
-    console.error(e);
-    showToast('❌ Error al generar el PDF', true);
-  }
-
-  btn.disabled = false;
-  btn.innerHTML = '<span>⬇️</span> Descargar .pdf';
 }
 
 // ─── TOAST ───
