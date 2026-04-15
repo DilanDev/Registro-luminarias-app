@@ -4,6 +4,122 @@ const phaseLabel = { antes: 'ANTES', durante: 'DURANTE', despues: 'DESPUÉS' };
 let currentStep = 1;
 const STEP_LABELS = ['', 'Información', 'Fotografías', 'Vista Previa', 'Exportar'];
 
+// ─── INDEXEDDB ──────────────────────────────────────────────
+let db = null;
+const DB_NAME = 'LuminariasDB';
+const DB_VERSION = 1;
+const STORE_NAME = 'registro';
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    if (db && db.name === DB_NAME) {
+      resolve(db);
+      return;
+    }
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      db = request.result;
+      resolve(db);
+    };
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+      }
+    };
+  });
+}
+
+async function saveToIndexedDB() {
+  try {
+    const database = await openDB();
+    const transaction = database.transaction([STORE_NAME], 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+    
+    const dataToSave = {
+      id: 'currentState',
+      images: {
+        antes: images.antes.map(img => ({ dataUrl: img.dataUrl, name: img.name, type: img.type })),
+        durante: images.durante.map(img => ({ dataUrl: img.dataUrl, name: img.name, type: img.type })),
+        despues: images.despues.map(img => ({ dataUrl: img.dataUrl, name: img.name, type: img.type }))
+      },
+      formData: {
+        titulo: document.getElementById('titulo')?.value || '',
+        mes: document.getElementById('mes')?.value || '',
+        anio: document.getElementById('anio')?.value || '',
+        municipio: document.getElementById('municipio')?.value || '',
+        fecha: document.getElementById('fecha')?.value || '',
+        descripcion: document.getElementById('descripcion')?.value || '',
+        descAntes: document.getElementById('desc-antes')?.value || '',
+        descDurante: document.getElementById('desc-durante')?.value || '',
+        descDespues: document.getElementById('desc-despues')?.value || ''
+      },
+      timestamp: Date.now()
+    };
+    
+    store.put(dataToSave);
+  } catch (error) {
+    console.error('Error guardando en IndexedDB:', error);
+  }
+}
+
+async function loadFromIndexedDB() {
+  try {
+    const database = await openDB();
+    const transaction = database.transaction([STORE_NAME], 'readonly');
+    const store = transaction.objectStore(STORE_NAME);
+    const data = await new Promise((resolve, reject) => {
+      const getRequest = store.get('currentState');
+      getRequest.onsuccess = () => resolve(getRequest.result);
+      getRequest.onerror = () => reject(getRequest.error);
+    });
+    
+    if (!data) return false;
+    
+    if (data.images) {
+      images.antes = data.images.antes || [];
+      images.durante = data.images.durante || [];
+      images.despues = data.images.despues || [];
+      renderGrid('antes');
+      renderGrid('durante');
+      renderGrid('despues');
+    }
+    
+    if (data.formData) {
+      document.getElementById('titulo').value = data.formData.titulo || '';
+      document.getElementById('mes').value = data.formData.mes || 'ABRIL';
+      document.getElementById('anio').value = data.formData.anio || '2026';
+      document.getElementById('municipio').value = data.formData.municipio || '';
+      document.getElementById('fecha').value = data.formData.fecha || '';
+      document.getElementById('descripcion').value = data.formData.descripcion || '';
+      document.getElementById('desc-antes').value = data.formData.descAntes || '';
+      document.getElementById('desc-durante').value = data.formData.descDurante || '';
+      document.getElementById('desc-despues').value = data.formData.descDespues || '';
+    }
+    
+    showToast('📁 Datos restaurados automáticamente');
+    return true;
+  } catch (error) {
+    console.error('Error cargando desde IndexedDB:', error);
+    return false;
+  }
+}
+
+async function clearIndexedDB() {
+  try {
+    const database = await openDB();
+    const transaction = database.transaction([STORE_NAME], 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+    store.delete('currentState');
+    showToast('🗑️ Datos eliminados. La página se recargará.');
+    setTimeout(() => location.reload(), 1500);
+  } catch (error) {
+    console.error('Error limpiando IndexedDB:', error);
+    showToast('❌ Error al limpiar datos', true);
+  }
+}
+
 // ─── NAVIGATION ───
 function goStep(n) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('visible'));
@@ -32,6 +148,7 @@ function addImages(phase, files) {
     .then(loadedImages => {
       images[phase].push(...loadedImages);
       renderGrid(phase);
+      saveToIndexedDB();
     })
     .catch(err => {
       console.error('Error loading images:', err);
@@ -58,6 +175,7 @@ function renderGrid(phase) {
 function removeImg(phase, idx) {
   images[phase].splice(idx, 1);
   renderGrid(phase);
+  saveToIndexedDB();
 }
 
 // ─── DRAG & DROP ───
@@ -139,7 +257,7 @@ function buildPreview() {
   `;
 }
 
-// ─── GENERATE DOCX (con primera página estilo imagen y imágenes grandes) ───
+// ─── GENERATE DOCX ───
 async function generateDOCX() {
   const btn = document.getElementById('btn-docx');
   btn.disabled = true;
@@ -156,75 +274,65 @@ async function generateDOCX() {
       ImageRun, AlignmentType, WidthType, BorderStyle
     } = docx;
 
-    // Helper: dataURL a buffer
     async function dataUrlToBuffer(dataUrl) {
       const res = await fetch(dataUrl);
       return await res.arrayBuffer();
     }
 
-    // Obtener buffers de imágenes
     const antesBuffers = await Promise.all(images.antes.map(img => dataUrlToBuffer(img.dataUrl)));
     const duranteBuffers = await Promise.all(images.durante.map(img => dataUrlToBuffer(img.dataUrl)));
     const despuesBuffers = await Promise.all(images.despues.map(img => dataUrlToBuffer(img.dataUrl)));
 
-    // Tamaño de imagen más grande (ocupará casi toda la celda)
-    const imgWidth = 300;  // píxeles
-    const imgHeight = 400; // se ajustará automáticamente si se usa solo width? Mejor poner ambos
-
+    const imgWidth = 300;
+    const imgHeight = 400;
     const border = { style: BorderStyle.SINGLE, size: 4, color: 'CCCCCC' };
     const allChildren = [];
 
-    // ========== PÁGINA 1: INFORMACIÓN (estilo imagen) ==========
-    // Título
+    // PÁGINA 1: INFORMACIÓN
     allChildren.push(
-      new Paragraph({
-        alignment: AlignmentType.CENTER,
-        children: [new TextRun({ text: fd.titulo, bold: true, size: 28 })]
-      }),
-      new Paragraph({ text: "" }), // espacio
-      // Municipio y Fecha (en dos líneas separadas, como en la imagen)
-      new Paragraph({ children: [new TextRun({ text: `Municipio: ${fd.municipio || '—'}`, bold: false, size: 22 })] }),
-      new Paragraph({ children: [new TextRun({ text: `Fecha: ${formatDate(fd.fecha)}`, bold: false, size: 22 })] }),
+      new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: fd.titulo, bold: true, size: 28 })] }),
       new Paragraph({ text: "" }),
-      // Descripción general
+      new Paragraph({ children: [new TextRun({ text: `Municipio: ${fd.municipio || '—'}`, size: 22 })] }),
+      new Paragraph({ children: [new TextRun({ text: `Fecha: ${formatDate(fd.fecha)}`, size: 22 })] }),
+      new Paragraph({ text: "" }),
       new Paragraph({ children: [new TextRun({ text: fd.descripcion, size: 22 })] }),
       new Paragraph({ text: "" })
     );
 
-    // ANTES
-    allChildren.push(
-      new Paragraph({ children: [new TextRun({ text: "ANTES:", bold: true, size: 24 })] }),
-      new Paragraph({ children: [new TextRun({ text: fd.descAntes || '—', size: 22 })] }),
-      new Paragraph({ text: "" })
-    );
-    // DURANTE
-    allChildren.push(
-      new Paragraph({ children: [new TextRun({ text: "DURANTE:", bold: true, size: 24 })] }),
-      new Paragraph({ children: [new TextRun({ text: fd.descDurante || '—', size: 22 })] }),
-      new Paragraph({ text: "" })
-    );
-    // DESPUÉS
-    allChildren.push(
-      new Paragraph({ children: [new TextRun({ text: "DESPUÉS:", bold: true, size: 24 })] }),
-      new Paragraph({ children: [new TextRun({ text: fd.descDespues || '—', size: 22 })] }),
-      new Paragraph({ text: "" })
-    );
+    if (fd.descAntes) {
+      allChildren.push(
+        new Paragraph({ children: [new TextRun({ text: "ANTES:", bold: true, size: 24 })] }),
+        new Paragraph({ children: [new TextRun({ text: fd.descAntes, size: 22 })] }),
+        new Paragraph({ text: "" })
+      );
+    }
+    if (fd.descDurante) {
+      allChildren.push(
+        new Paragraph({ children: [new TextRun({ text: "DURANTE:", bold: true, size: 24 })] }),
+        new Paragraph({ children: [new TextRun({ text: fd.descDurante, size: 22 })] }),
+        new Paragraph({ text: "" })
+      );
+    }
+    if (fd.descDespues) {
+      allChildren.push(
+        new Paragraph({ children: [new TextRun({ text: "DESPUÉS:", bold: true, size: 24 })] }),
+        new Paragraph({ children: [new TextRun({ text: fd.descDespues, size: 22 })] }),
+        new Paragraph({ text: "" })
+      );
+    }
 
-    // Salto de página después de la información
     allChildren.push(new Paragraph({ pageBreakBefore: true, text: "" }));
 
-    // ========== PÁGINAS DE IMÁGENES ==========
+    // PÁGINAS DE IMÁGENES
     const maxRows = Math.max(antesBuffers.length, duranteBuffers.length, despuesBuffers.length);
-    const rowsPerPage = 2; // 2 filas por página → 6 imágenes
+    const rowsPerPage = 2;
     const totalPages = Math.ceil(maxRows / rowsPerPage);
 
     for (let page = 0; page < totalPages; page++) {
       const startRow = page * rowsPerPage;
       const endRow = Math.min(startRow + rowsPerPage, maxRows);
-
       const tableRows = [];
 
-      // Cabecera de columnas
       tableRows.push(
         new TableRow({
           children: [
@@ -235,7 +343,6 @@ async function generateDOCX() {
         })
       );
 
-      // Filas de imágenes
       for (let i = startRow; i < endRow; i++) {
         const antesBuf = i < antesBuffers.length ? antesBuffers[i] : null;
         const duranteBuf = i < duranteBuffers.length ? duranteBuffers[i] : null;
@@ -271,7 +378,6 @@ async function generateDOCX() {
       });
 
       allChildren.push(imageTable);
-
       if (page < totalPages - 1) {
         allChildren.push(new Paragraph({ pageBreakBefore: true, text: "" }));
       }
@@ -302,3 +408,21 @@ function showToast(msg, isError = false) {
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 3500);
 }
+
+// ─── AUTO-GUARDAR FORMULARIO ───
+function autoSaveForm() {
+  const inputs = ['titulo', 'mes', 'anio', 'municipio', 'fecha', 'descripcion', 'desc-antes', 'desc-durante', 'desc-despues'];
+  inputs.forEach(id => {
+    const element = document.getElementById(id);
+    if (element) {
+      element.addEventListener('input', () => saveToIndexedDB());
+      element.addEventListener('change', () => saveToIndexedDB());
+    }
+  });
+}
+
+// ─── INICIALIZAR ───
+window.addEventListener('DOMContentLoaded', async () => {
+  await loadFromIndexedDB();
+  autoSaveForm();
+});
